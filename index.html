@@ -168,19 +168,66 @@
     .message.lose { color: #f87171; text-shadow: 0 0 12px rgba(248,113,113,0.4); }
     .message { transition: color 0.3s ease, text-shadow 0.3s ease; }
     #hint { transition: opacity 0.2s ease; }
-    /* Окошко с видео после победы — чуть больше поля (поле ~312px, окошко 400px) */
+    /* Окошко с видео после победы + фейерверк по бокам */
     .video-overlay {
-      display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.75);
       z-index: 100;
+      display: flex;
       align-items: center;
       justify-content: center;
       padding: 20px;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.4s ease, visibility 0.4s ease;
     }
-    .video-overlay.show { display: flex; }
+    .video-overlay.show {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      background: rgba(0,0,0,0.8);
+    }
+    .video-overlay .fireworks {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .video-overlay .fireworks-left { left: 0; right: 50%; }
+    .video-overlay .fireworks-right { left: 50%; right: 0; }
+    .firework-particle {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0;
+      will-change: transform, opacity;
+      box-shadow: 0 0 6px currentColor;
+    }
+    .firework-particle.small { width: 5px; height: 5px; }
+    .firework-particle.medium { width: 8px; height: 8px; }
+    .firework-particle.large { width: 12px; height: 12px; }
+    .fireworks-left .firework-particle {
+      left: 10%;
+      animation: firework-left 3s ease-out forwards;
+    }
+    .fireworks-right .firework-particle {
+      right: 10%;
+      left: auto;
+      animation: firework-right 3s ease-out forwards;
+    }
+    @keyframes firework-left {
+      0% { transform: translate(0, 0) scale(1); opacity: 1; }
+      70% { opacity: 1; }
+      100% { transform: translate(-180px, var(--fy, 0px)) scale(0.2); opacity: 0; }
+    }
+    @keyframes firework-right {
+      0% { transform: translate(0, 0) scale(1); opacity: 1; }
+      70% { opacity: 1; }
+      100% { transform: translate(180px, var(--fy, 0px)) scale(0.2); opacity: 0; }
+    }
     .video-box {
+      position: relative;
+      z-index: 2;
       width: 100%;
       max-width: 400px;
       background: linear-gradient(145deg, #3d3d3d 0%, #2d2d2d 100%);
@@ -188,6 +235,13 @@
       padding: 12px;
       box-shadow: 0 12px 48px rgba(0,0,0,0.6);
       border: 1px solid rgba(255,255,255,0.1);
+      transform: scale(0.85);
+      opacity: 0;
+      transition: transform 0.35s ease, opacity 0.35s ease;
+    }
+    .video-overlay.show .video-box {
+      transform: scale(1);
+      opacity: 1;
     }
     .video-box video {
       width: 100%;
@@ -226,8 +280,12 @@
   <div class="message" id="message"></div>
 
   <div class="video-overlay" id="videoOverlay">
+    <div class="fireworks">
+      <div class="fireworks-left" id="fireworksLeft"></div>
+      <div class="fireworks-right" id="fireworksRight"></div>
+    </div>
     <div class="video-box">
-      <video id="victoryVideo" src="victory.mp4" controls playsinline></video>
+      <video id="victoryVideo" src="victory.mp4" playsinline muted></video>
       <button type="button" class="close-video" id="closeVideo">Закрыть</button>
     </div>
   </div>
@@ -249,9 +307,8 @@
     const boardImageEl = document.getElementById('boardImage');
     const minesEl = document.getElementById('mines');
 
-    // Картинка под полем (файл background.png в папке с игрой)
-    const backgroundImageUrl = 'background.png';
-    boardImageEl.style.backgroundImage = 'url(' + backgroundImageUrl + ')';
+    const BACKGROUNDS = ['background.png', 'background1.jpg', 'background2.jpg', 'background3.jpg'];
+    const VICTORY_VIDEOS = ['victory1.mp4', 'victory2.mp4', 'victory3.mp4', 'victory4.mp4'];
     const timerEl = document.getElementById('timer');
     const messageEl = document.getElementById('message');
     const restartBtn = document.getElementById('restart');
@@ -290,6 +347,8 @@
           flagged[r][c] = false;
         }
       }
+      var bg = BACKGROUNDS[Math.floor(Math.random() * BACKGROUNDS.length)];
+      boardImageEl.style.backgroundImage = 'url(' + bg + ')';
       render();
     }
 
@@ -364,18 +423,67 @@
       }
     }
 
-    function showVictoryVideo() {
-      const overlay = document.getElementById('videoOverlay');
-      const video = document.getElementById('victoryVideo');
-      if (overlay && video) {
-        overlay.classList.add('show');
-        video.currentTime = 0;
-        video.play().catch(function() {});
+    const FIREWORK_COLORS = ['#ffd700', '#f97316', '#ef4444', '#4ade80', '#22d3ee', '#a78bfa', '#facc15', '#ec4899'];
+    function createFireworks(container, delayMs) {
+      if (!container) return;
+      var sizes = ['small', 'small', 'medium', 'large'];
+      for (var i = 0; i < 18; i++) {
+        var p = document.createElement('div');
+        p.className = 'firework-particle ' + sizes[Math.floor(Math.random() * sizes.length)];
+        p.style.background = FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)];
+        p.style.color = p.style.background;
+        p.style.top = (15 + Math.random() * 70) + '%';
+        p.style.animationDelay = (delayMs / 1000 + Math.random() * 0.3) + 's';
+        p.style.setProperty('--fy', (Math.random() * 120 - 60) + 'px');
+        container.appendChild(p);
       }
     }
+    function runFireworks() {
+      var leftEl = document.getElementById('fireworksLeft');
+      var rightEl = document.getElementById('fireworksRight');
+      if (!leftEl || !rightEl) return;
+      leftEl.innerHTML = '';
+      rightEl.innerHTML = '';
+      createFireworks(leftEl, 0);
+      createFireworks(rightEl, 0);
+      setTimeout(function() {
+        createFireworks(leftEl, 500);
+        createFireworks(rightEl, 500);
+      }, 500);
+      setTimeout(function() {
+        createFireworks(leftEl, 1000);
+        createFireworks(rightEl, 1000);
+      }, 1000);
+      setTimeout(function() {
+        createFireworks(leftEl, 1500);
+        createFireworks(rightEl, 1500);
+      }, 1500);
+    }
+    function playVictorySound() {
+      try {
+        var a = new Audio('victory.mp3');
+        a.volume = 0.7;
+        a.play().catch(function() {});
+      } catch (e) {}
+    }
+    function showVictoryVideo() {
+      var overlay = document.getElementById('videoOverlay');
+      var video = document.getElementById('victoryVideo');
+      if (!overlay || !video) return;
+      var vid = VICTORY_VIDEOS[Math.floor(Math.random() * VICTORY_VIDEOS.length)];
+      video.src = vid;
+      video.muted = true;
+      video.currentTime = 0;
+      runFireworks();
+      playVictorySound();
+      overlay.classList.add('show');
+      requestAnimationFrame(function() {
+        video.play().catch(function() {});
+      });
+    }
     function closeVictoryVideo() {
-      const overlay = document.getElementById('videoOverlay');
-      const video = document.getElementById('victoryVideo');
+      var overlay = document.getElementById('videoOverlay');
+      var video = document.getElementById('victoryVideo');
       if (overlay && video) {
         overlay.classList.remove('show');
         video.pause();
