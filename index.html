@@ -168,6 +168,47 @@
     .message.lose { color: #f87171; text-shadow: 0 0 12px rgba(248,113,113,0.4); }
     .message { transition: color 0.3s ease, text-shadow 0.3s ease; }
     #hint { transition: opacity 0.2s ease; }
+    /* Окошко с видео после победы — чуть больше поля (поле ~312px, окошко 400px) */
+    .video-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .video-overlay.show { display: flex; }
+    .video-box {
+      width: 100%;
+      max-width: 400px;
+      background: linear-gradient(145deg, #3d3d3d 0%, #2d2d2d 100%);
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .video-box video {
+      width: 100%;
+      display: block;
+      border-radius: 8px;
+    }
+    .video-box .close-video {
+      display: block;
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(145deg, #0d9488 0%, #0f766e 100%);
+      color: #f8fafc;
+      cursor: pointer;
+    }
+    .video-box .close-video:hover { background: linear-gradient(145deg, #14b8a6 0%, #0d9488 100%); }
   </style>
 </head>
 <body>
@@ -183,6 +224,13 @@
     <div class="board" id="board"></div>
   </div>
   <div class="message" id="message"></div>
+
+  <div class="video-overlay" id="videoOverlay">
+    <div class="video-box">
+      <video id="victoryVideo" src="victory.mp4" controls playsinline></video>
+      <button type="button" class="close-video" id="closeVideo">Закрыть</button>
+    </div>
+  </div>
 
   <script>
     const ROWS = 9;
@@ -312,6 +360,25 @@
         clearInterval(timerInterval);
         messageEl.textContent = 'Победа!';
         messageEl.className = 'message win';
+        showVictoryVideo();
+      }
+    }
+
+    function showVictoryVideo() {
+      const overlay = document.getElementById('videoOverlay');
+      const video = document.getElementById('victoryVideo');
+      if (overlay && video) {
+        overlay.classList.add('show');
+        video.currentTime = 0;
+        video.play().catch(function() {});
+      }
+    }
+    function closeVictoryVideo() {
+      const overlay = document.getElementById('videoOverlay');
+      const video = document.getElementById('victoryVideo');
+      if (overlay && video) {
+        overlay.classList.remove('show');
+        video.pause();
       }
     }
 
@@ -383,6 +450,10 @@
     }
 
     restartBtn.addEventListener('click', init);
+    document.getElementById('closeVideo').addEventListener('click', closeVictoryVideo);
+    document.getElementById('videoOverlay').addEventListener('click', function(e) {
+      if (e.target === this) closeVictoryVideo();
+    });
     init();
   </script>
 </body>
